@@ -1,8 +1,8 @@
 #ifndef __INC_METIN_II_371GNFBQOCJ_LZO_H__
 #define __INC_METIN_II_371GNFBQOCJ_LZO_H__
 
-#include "../lzo-2.10/include/lzo/lzoconf.h"
-#include "../lzo-2.10/include/lzo/lzo1x.h"
+#include "lzoconf.h"
+#include "lzo1x.h"
 #include "Singleton.h"
 
 typedef unsigned char BYTE;
@@ -17,9 +17,9 @@ class CLZObject
 		typedef struct SHeader
 		{
 			DWORD	dwFourCC;
-			DWORD	dwEncryptSize;		// ¾ÏÈ£È­µÈ Å©±â
-			DWORD	dwCompressedSize;	// ¾ÐÃàµÈ µ¥ÀÌÅÍ Å©±â
-			DWORD	dwRealSize;		// ½ÇÁ¦ µ¥ÀÌÅÍ Å©±â
+			DWORD	dwEncryptSize;		// ï¿½ï¿½È£È­ï¿½ï¿½ Å©ï¿½ï¿½
+			DWORD	dwCompressedSize;	// ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Å©ï¿½ï¿½
+			DWORD	dwRealSize;		// ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Å©ï¿½ï¿½
 		} THeader;
 #pragma pack()
 

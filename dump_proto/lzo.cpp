@@ -5,7 +5,8 @@
 #include "lzo.h"
 #include "tea.h"
 
-CLZO asdfasdfasdfasdf;
+// Global instance of CLZO singleton to initialize the singleton pattern
+static CLZO g_lzoInstance;
 
 #define MAKEFOURCC(ch0, ch1, ch2, ch3)                              \
                 ((DWORD)(BYTE)(ch0) | ((DWORD)(BYTE)(ch1) << 8) |   \
@@ -60,9 +61,9 @@ void CLZObject::BeginCompress(const void * pvIn, UINT uiInLen)
 	m_pbIn = (const BYTE *) pvIn;
 
 	// sizeof(SHeader) +
-	// ¾ÏÈ£È­¸¦ À§ÇÑ fourCC 4¹ÙÀÌÆ®
-	// ¾ÐÃàµÈ ÈÄ ¸¸µé¾îÁú ¼ö ÀÖ´Â ÃÖ´ë ¿ë·® +
-	// ¾ÏÈ£È­¸¦ À§ÇÑ 8 ¹ÙÀÌÆ®
+	// ï¿½ï¿½È£È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ fourCC 4ï¿½ï¿½ï¿½ï¿½Æ®
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½Ö´ï¿½ ï¿½Ö´ï¿½ ï¿½ë·® +
+	// ï¿½ï¿½È£È­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ 8 ï¿½ï¿½ï¿½ï¿½Æ®
 	m_dwBufferSize = sizeof(THeader) + sizeof(DWORD) + (uiInLen + uiInLen / 64 + 16 + 3) + 8;
 
 	m_pbBuffer = new BYTE[m_dwBufferSize];
@@ -77,24 +78,30 @@ void CLZObject::BeginCompress(const void * pvIn, UINT uiInLen)
 
 bool CLZObject::Compress()
 {
-	lzo_uint	iOutLen;
-	BYTE *	pbBuffer;
-
-	pbBuffer = m_pbBuffer + sizeof(THeader);
-	*(DWORD *) pbBuffer = ms_dwFourCC;
+	BYTE * pbBuffer = m_pbBuffer + sizeof(THeader);
+	*(DWORD *) pbBuffer = 0x5A4F434D;  // 'MOCZ'
 	pbBuffer += sizeof(DWORD);
 
-	int r = lzo1x_1_compress((BYTE *) m_pbIn, m_pHeader->dwRealSize, pbBuffer, &iOutLen, CLZO::instance().GetWorkMemory());
+	// Calculate available space for compressed data
+	lzo_uint available_space = (lzo_uint)(m_dwBufferSize - sizeof(THeader) - sizeof(DWORD));
+	lzo_uint compressed_size = available_space;
+
+	int r = lzo1x_1_compress(
+		(BYTE *) m_pbIn, 
+		(lzo_uint)m_pHeader->dwRealSize, 
+		pbBuffer, 
+		&compressed_size, 
+		CLZO::instance().GetWorkMemory()
+	);
 
 	if (LZO_E_OK != r)
 	{
-		fprintf(stderr, "LZO: lzo1x_compress failed\n");
 		return false;
 	}
 
-	m_pHeader->dwCompressedSize = static_cast<DWORD>(iOutLen);
+	m_pHeader->dwCompressedSize = (DWORD)compressed_size;
 	m_bCompressed = true;
-
+	
 	return true;
 }
 
@@ -118,7 +125,7 @@ bool CLZObject::BeginDecompress(const void * pvIn)
 
 bool CLZObject::Decompress(DWORD * pdwKey)
 {
-	lzo_uint uiSize;
+	UINT uiSize;
 	int r;
 
 	if (m_pHeader->dwEncryptSize)
@@ -131,7 +138,7 @@ bool CLZObject::Decompress(DWORD * pdwKey)
 			return false;
 		}
 
-		if (LZO_E_OK != (r = lzo1x_decompress(pbDecryptedBuffer + sizeof(DWORD), m_pHeader->dwCompressedSize, m_pbBuffer, &uiSize, NULL)))
+		if (LZO_E_OK != (r = lzo1x_decompress(pbDecryptedBuffer + sizeof(DWORD), m_pHeader->dwCompressedSize, m_pbBuffer, (lzo_uint*)&uiSize, NULL)))
 		{
 			fprintf(stderr, "LZObject: Decompress failed(decrypt) ret %d\n", r);
 			return false;
@@ -141,9 +148,9 @@ bool CLZObject::Decompress(DWORD * pdwKey)
 	}
 	else
 	{
-		uiSize = static_cast<lzo_uint>(m_pHeader->dwRealSize);
+		uiSize = m_pHeader->dwRealSize;
 
-		if (LZO_E_OK != (r = lzo1x_decompress_safe(m_pbIn, m_pHeader->dwCompressedSize, m_pbBuffer, &uiSize, NULL)))
+		if (LZO_E_OK != (r = lzo1x_decompress_safe(m_pbIn, m_pHeader->dwCompressedSize, m_pbBuffer, (lzo_uint*)&uiSize, NULL)))
 		{
 			fprintf(stderr, "LZObject: Decompress failed : ret %d, CompressedSize %d\n", r, m_pHeader->dwCompressedSize);
 			return false;
@@ -168,7 +175,16 @@ bool CLZObject::Encrypt(DWORD * pdwKey)
 	}
 
 	BYTE * pbBuffer = m_pbBuffer + sizeof(THeader);
-	m_pHeader->dwEncryptSize = tea_encrypt((DWORD *) pbBuffer, (const DWORD *) pbBuffer, pdwKey, m_pHeader->dwCompressedSize + 19);
+	// TEA pads to 8-byte boundaries; encrypt the FourCC + compressed data
+	DWORD dwSizeToEncrypt = sizeof(DWORD) + m_pHeader->dwCompressedSize;
+	fprintf(stderr, "Encrypt: dwCompressedSize=%u, dwSizeToEncrypt=%u\n", m_pHeader->dwCompressedSize, dwSizeToEncrypt);
+	m_pHeader->dwEncryptSize = tea_encrypt((DWORD *) pbBuffer, (const DWORD *) pbBuffer, pdwKey, dwSizeToEncrypt);
+	fprintf(stderr, "Encrypt: dwEncryptSize=%u (return from tea_encrypt)\n", m_pHeader->dwEncryptSize);
+	if (m_pHeader->dwEncryptSize == 0)
+	{
+		fprintf(stderr, "Encrypt: tea_encrypt failed (returned 0)\n");
+		return false;
+	}
 	return true;
 }
 
@@ -218,15 +234,12 @@ bool CLZO::CompressEncryptedMemory(CLZObject & rObj, const void * pIn, UINT uiIn
 {
 	rObj.BeginCompress(pIn, uiInLen);
 
-	if (rObj.Compress())
+	if (!rObj.Compress())
 	{
-		if (rObj.Encrypt(pdwKey))
-			return true;
-
 		return false;
-	}   
+	}
 
-	return false;
+	return rObj.Encrypt(pdwKey);
 }   
 
 bool CLZO::Decompress(CLZObject & rObj, const BYTE * pbBuf, DWORD * pdwKey)

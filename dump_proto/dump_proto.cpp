@@ -5,7 +5,11 @@
 #include <string>
 #include <map>
 #include <set>
+#include <vector>
 #include <algorithm>
+#include <cstring>
+#include <io.h>
+#include <direct.h>
 
 #include "lzo.h"
 
@@ -296,27 +300,8 @@ bool Set_Proto_Mob_Table(TMobTable *mobTable, cCsvTable &csvTable, std::map<int,
 	
 	return true;
 }
-
-
-bool BuildMobTable()
+bool BuildMobTable(const char* nameFile)
 {
-	//%%% <�Լ� ����> %%%//
-	//1. ��� : 'mob_proto.txt', 'mob_proto_test.txt', 'mob_names.txt' ������ �а�,
-	//		m_pMobTable �� �����Ѵ�.
-	//2. ����
-	//	1)'mob_names.txt' ������ �о vnum:name ���� �����.
-	//	2)'mob_proto_test.txt' ������ �о,
-	//		test_mob_table �� �����,
-	//		vnum:TMobTable ���� �����.
-	//	3)'mob_proto.txt' ������ �а�, m_pMobTable�� �����Ѵ�.
-	//		test_mob_table�� �ִ� vnum�� �׽�Ʈ �����͸� �ִ´�.
-	//	4)test_mob_table �������߿�, m_pMobTable �� ���� �����͸� �߰��Ѵ�.
-	//3. �׽�Ʈ
-	//	1)'mob_proto.txt' ������ m_pMobTable�� �� ������. -> �Ϸ�
-	//	2)'mob_names.txt' ������ m_pMobTable�� �� ������. -> �Ϸ�
-	//	3)'mob_proto_test.txt' ���� [��ġ��] ������ m_pMobTable �� �� ������. -> �Ϸ�
-	//	4)'mob_proto_test.txt' ���� [���ο�] ������ m_pMobTable �� �� ������. -> �Ϸ�
-	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^//
 
 	fprintf(stderr, "sizeof(TMobTable): %u\n", sizeof(TMobTable));
 
@@ -327,9 +312,9 @@ bool BuildMobTable()
 	bool isNameFile = true;
 	map<int,const char*> localMap;
 	cCsvTable nameData;
-	if(!nameData.Load("mob_names.txt",'\t'))
+	if(!nameData.Load(nameFile,'\t'))
 	{
-		fprintf(stderr, "mob_names.txt ������ �о���� ���߽��ϴ�\n");
+		fprintf(stderr, "%s ������ �о���� ���߽��ϴ�\n", nameFile);
 		isNameFile = false;
 	} else {
 		nameData.Next();
@@ -540,9 +525,15 @@ bool BuildMobTable()
 	}
 	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^//
 
-
+	printf("BuildMobTable returning TRUE, m_iMobTableSize=%d\n", m_iMobTableSize);
+	fflush(stdout);
 
 	return true;
+}
+
+bool BuildMobTable()
+{
+	return BuildMobTable("mob_names.txt");
 }
 
 
@@ -557,16 +548,62 @@ DWORD g_adwMobProtoKey[4] =
 };
 
 
-bool SaveMobProto()
-{   
+struct SLocaleFile
+{
+	std::string locale;
+	std::string filename;
+};
+
+static std::vector<SLocaleFile> CollectLocaleFiles(const char* pattern, const char* baseFile, const char* prefix)
+{
+	std::vector<SLocaleFile> locales;
+
+	_finddata_t data;
+	intptr_t handle = _findfirst(pattern, &data);
+	if (handle == -1)
+		return locales;
+
+	const size_t prefixLen = std::strlen(prefix);
+	do
+	{
+		std::string name = data.name;
+		if (name == baseFile)
+			continue;
+
+		size_t underscore = name.find(prefix);
+		size_t dot = name.rfind('.');
+		if (underscore == std::string::npos || dot == std::string::npos || dot <= underscore + prefixLen)
+			continue;
+
+		std::string locale = name.substr(underscore + prefixLen, dot - (underscore + prefixLen));
+		if (!locale.empty())
+			locales.push_back({ locale, name });
+	} while (_findnext(handle, &data) == 0);
+
+	_findclose(handle);
+	return locales;
+}
+
+static void EnsureLocaleDirectory(const std::string& locale)
+{
+	std::string root = std::string("locale_") + locale;
+	_mkdir(root.c_str());
+	std::string nested = root + "/locale";
+	_mkdir(nested.c_str());
+	std::string leaf = nested + "/" + locale;
+	_mkdir(leaf.c_str());
+}
+
+void SaveMobProto(const char* outputPath)
+{
 	FILE * fp;          
 
-	fp = fopen("mob_proto", "wb");
+	fp = fopen(outputPath, "wb");
 
 	if (!fp)
 	{ 
-		printf("cannot open %s for writing\n", "mob_proto");
-		return false;
+		printf("cannot open %s for writing\n", outputPath);
+		return;
 	}
 
 	DWORD fourcc = MAKEFOURCC('M', 'M', 'P', 'T');
@@ -579,18 +616,11 @@ bool SaveMobProto()
 
 	printf("sizeof(TMobTable) %d\n", sizeof(TMobTable));
 
-	if (CLZO::instance().GetWorkMemory() == NULL)
-	{
-		printf("LZO work memory is NULL; lzo_init likely failed.\n");
-		fclose(fp);
-		return false;
-	}
-
 	if (!CLZO::instance().CompressEncryptedMemory(zObj, m_pMobTable, sizeof(TMobTable) * m_iMobTableSize, g_adwMobProtoKey))  
 	{
-		printf("CompressEncryptedMemory failed; not writing mob_proto.\n");
+		printf("cannot compress\n");
 		fclose(fp);
-		return false;
+		return;
 	}
 
 	const CLZObject::THeader & r = zObj.GetHeader();
@@ -603,7 +633,11 @@ bool SaveMobProto()
 	fwrite(zObj.GetBuffer(), dwDataSize, 1, fp);
 
 	fclose(fp);
-	return true;
+}
+
+void SaveMobProto()
+{
+	SaveMobProto("mob_proto");
 }
 
 void LoadMobProto()
@@ -737,7 +771,7 @@ bool Set_Proto_Item_Table(TClientItemTable *itemTable, cCsvTable &csvTable, std:
 	return true;
 }
 
-bool BuildItemTable()
+bool BuildItemTable(const char* nameFile)
 {
 	//%%% <�Լ� ����> %%%//
 	//1. ��� : 'item_proto.txt', 'item_proto_test.txt', 'item_names.txt' ������ �а�,
@@ -765,9 +799,9 @@ bool BuildItemTable()
 	bool isNameFile = true;
 	map<int,const char*> localMap;
 	cCsvTable nameData;
-	if(!nameData.Load("item_names.txt",'\t'))
+	if(!nameData.Load(nameFile,'\t'))
 	{
-		fprintf(stderr, "item_names.txt ������ �о���� ���߽��ϴ�\n");
+		fprintf(stderr, "%s ������ �о���� ���߽��ϴ�\n", nameFile);
 		isNameFile = false;
 	} else {
 		nameData.Next();
@@ -994,6 +1028,11 @@ bool BuildItemTable()
 	return true;
 }
 
+bool BuildItemTable()
+{
+	return BuildItemTable("item_names.txt");
+}
+
 DWORD g_adwItemProtoKey[4] =
 {
 	173217,
@@ -1002,15 +1041,15 @@ DWORD g_adwItemProtoKey[4] =
 	27973291
 };  
 
-void SaveItemProto()
+void SaveItemProto(const char* outputPath)
 {
 	FILE * fp;
 
-	fp = fopen("item_proto", "wb");
+	fp = fopen(outputPath, "wb");
 
 	if (!fp)
 	{
-		printf("cannot open %s for writing\n", "item_proto");
+		printf("cannot open %s for writing\n", outputPath);
 		return;
 	}   
 
@@ -1051,7 +1090,7 @@ void SaveItemProto()
 
 	fclose(fp);
 
-	fp = fopen("item_proto", "rb");
+	fp = fopen(outputPath, "rb");
 
 	if (!fp)
 	{
@@ -1066,22 +1105,70 @@ void SaveItemProto()
 	fclose(fp);
 }
 
+void SaveItemProto()
+{
+	SaveItemProto("item_proto");
+}
+
+static void BuildLocalizedMobProtos()
+{
+	const std::vector<SLocaleFile> locales = CollectLocaleFiles("mob_names_*.txt", "mob_names.txt", "mob_names_");
+	for (const SLocaleFile& locale : locales)
+	{
+		EnsureLocaleDirectory(locale.locale);
+		std::string output = std::string("locale_") + locale.locale + "/locale/" + locale.locale + "/mob_proto";
+		if (BuildMobTable(locale.filename.c_str()))
+		{
+			SaveMobProto(output.c_str());
+		}
+		else
+		{
+			fprintf(stderr, "Skipping locale %s because mob table build failed.\n", locale.locale.c_str());
+		}
+	}
+}
+
+static void BuildLocalizedItemProtos()
+{
+	const std::vector<SLocaleFile> locales = CollectLocaleFiles("item_names_*.txt", "item_names.txt", "item_names_");
+	for (const SLocaleFile& locale : locales)
+	{
+		EnsureLocaleDirectory(locale.locale);
+		std::string output = std::string("locale_") + locale.locale + "/locale/" + locale.locale + "/item_proto";
+		if (BuildItemTable(locale.filename.c_str()))
+		{
+			SaveItemProto(output.c_str());
+		}
+		else
+		{
+			fprintf(stderr, "Skipping locale %s because item table build failed.\n", locale.locale.c_str());
+		}
+	}
+}
+
 
 
 int main(int argc, char ** argv)
 {
+
+	printf("=== MAIN START ===\n");
+	fflush(stdout);
 	
 	if (BuildMobTable())
 	{
-		if (SaveMobProto())
-		{
-			LoadMobProto();
-			cout << "BuildMobTable working normal" << endl;
-		}
-		else
-		{
-			cout << "SaveMobProto failed; skipping LoadMobProto" << endl;
-		}
+		printf("=== BuildMobTable returned TRUE ===\n");
+		fflush(stdout);
+		printf("=== About to call SaveMobProto ===\n");
+		fflush(stdout);
+		SaveMobProto();
+		printf("=== SaveMobProto returned ===\n");
+		fflush(stdout);
+		LoadMobProto();
+		cout << "BuildMobTable working normal" << endl;
+		BuildLocalizedMobProtos();
+	} else {
+		printf("=== BuildMobTable returned FALSE ===\n");
+		fflush(stdout);
 	}
 	
 
@@ -1089,6 +1176,7 @@ int main(int argc, char ** argv)
 	if (BuildItemTable())
 	{
 		SaveItemProto();
+		BuildLocalizedItemProtos();
 		cout << "BuildItemTable working normal" << endl;
 	}
 	

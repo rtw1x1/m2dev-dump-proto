@@ -74,10 +74,7 @@ int get_Item_Type_Value(string inputString)
 		
 		"ITEM_SECONDARY_COIN",						//33개
 		
-		"ITEM_RING", "ITEM_BELT",					//35개 (EItemTypes 값으로 치면 34)
-//#ifdef ENABLE_CHEQUE_SYSTEM
-		"ITEM_CHEQUE",
-//#endif
+		"ITEM_RING", "ITEM_BELT"					//35개 (EItemTypes 값으로 치면 34)
 	};
 
 	
@@ -121,15 +118,7 @@ int get_Item_SubType_Value(int type_value, string inputString)
 						"RESOURCE_STONE", "RESOURCE_METIN", "RESOURCE_ORE" };
 	string arSub16[] = { "UNIQUE_NONE", "UNIQUE_BOOK", "UNIQUE_SPECIAL_RIDE", "UNIQUE_3", "UNIQUE_4", "UNIQUE_5",
 					"UNIQUE_6", "UNIQUE_7", "UNIQUE_8", "UNIQUE_9", "USE_SPECIAL"};
-	string arSub28[] = { "COSTUME_BODY", "COSTUME_HAIR" 
-//#ifdef ENABLE_SASH_SYSTEM
-						,"COSTUME_SASH"
-//#endif
-//#ifdef ENABLE_COSTUME_WEAPON_SYSTEM
-						,"COSTUME_WEAPON"
-//#endif
-						,"COSTUME_MOUNT"
-		};
+	string arSub28[] = { "COSTUME_BODY", "COSTUME_HAIR" };
 	string arSub29[] = { "DS_SLOT1", "DS_SLOT2", "DS_SLOT3", "DS_SLOT4", "DS_SLOT5", "DS_SLOT6" };
 	string arSub31[] = { "EXTRACT_DRAGON_SOUL", "EXTRACT_DRAGON_HEART" };
 
@@ -169,11 +158,8 @@ int get_Item_SubType_Value(int type_value, string inputString)
 		0,			//32
 		0,			//33
 		0,			//34
-//#ifdef ENABLE_CHEQUE_SYSTEM
-		0, // 35 cheque
-//#endif
 		};
-	int arNumberOfSubtype[36];
+	int arNumberOfSubtype[35];
 	arNumberOfSubtype[0] = 0;
 	arNumberOfSubtype[1] = sizeof(arSub1)/sizeof(arSub1[0]);
 	arNumberOfSubtype[2] = sizeof(arSub2)/sizeof(arSub2[0]);
@@ -209,7 +195,6 @@ int get_Item_SubType_Value(int type_value, string inputString)
 	arNumberOfSubtype[32] = 0;
 	arNumberOfSubtype[33] = 0;
 	arNumberOfSubtype[34] = 0;
-	arNumberOfSubtype[35] = 0;
 	
 
 	//아이템 타입의 서브타입 어레이가 존재하는지 알아보고, 없으면 0 리턴
@@ -301,14 +286,7 @@ int get_Item_WearFlag_Value(string inputString)
 {
 
 	string arWearrFlag[] = {"WEAR_BODY", "WEAR_HEAD", "WEAR_FOOTS", "WEAR_WRIST", "WEAR_WEAPON", "WEAR_NECK", "WEAR_EAR", "WEAR_SHIELD", "WEAR_UNIQUE",
-					"WEAR_ARROW", "WEAR_HAIR", "WEAR_ABILITY"
-//#ifdef __SASH_SYSTEM__
-					,"WEAR_COSTUME_SASH"
-// #endif
-// #ifdef __WEAPON_COSTUME_SYSTEM__
-					,"WEAR_COSTUME_WEAPON"
-//#endif
-					};
+					"WEAR_ARROW", "WEAR_HAIR", "WEAR_ABILITY"};
 
 
 	int retValue = 0;
@@ -402,8 +380,6 @@ int get_Item_ApplyType_Value(string inputString)
 			"APPLY_EXTRACT_HP_PCT", "APPLY_RESIST_WARRIOR", "APPLY_RESIST_ASSASSIN", "APPLY_RESIST_SURA", "APPLY_RESIST_SHAMAN",
 			"APPLY_ENERGY",	"APPLY_DEF_GRADE", "APPLY_COSTUME_ATTR_BONUS", "APPLY_MAGIC_ATTBONUS_PER", "APPLY_MELEE_MAGIC_ATTBONUS_PER",
 			"APPLY_RESIST_ICE", "APPLY_RESIST_EARTH", "APPLY_RESIST_DARK", "APPLY_ANTI_CRITICAL_PCT", "APPLY_ANTI_PENETRATE_PCT",
-			"APPLY_ATTBONUS_STONE", "APPLY_ATTBONUS_BOSS",
-			"APPLY_ATTBONUS_ELEC", "APPLY_ATTBONUS_FIRE", "APPLY_ATTBONUS_ICE", "APPLY_ATTBONUS_WIND", "APPLY_ATTBONUS_EARTH", "APPLY_ATTBONUS_DARK",
 	};
 
 	int retInt = -1;
@@ -494,7 +470,7 @@ int get_Mob_BattleType_Value(string inputString)
 
 int get_Mob_Size_Value(string inputString)
 {
-	string arSize[] = { "SAMLL", "MEDIUM", "BIG"};
+	string arSize[] = { "SMALL", "MEDIUM", "BIG"};
 
 	int retInt = 0;
 	//cout << "Size : " << sizeStr << " -> ";
@@ -540,11 +516,11 @@ int get_Mob_AIFlag_Value(string inputString)
 }
 int get_Mob_RaceFlag_Value(string inputString)
 {
-	string arRaceFlag[] = 	{"ANIMAL","UNDEAD","DEVIL","HUMAN","ORC","MILGYO","INSECT","FIRE","ICE","DESERT","TREE",
+	string arRaceFlag[] = {"ANIMAL","UNDEAD","DEVIL","HUMAN","ORC","MILGYO","INSECT","FIRE","ICE","DESERT","TREE",
 		"ATT_ELEC","ATT_FIRE","ATT_ICE","ATT_WIND","ATT_EARTH","ATT_DARK"};
 
 	int retValue = 0;
-	string* arInputString = StringSplit(inputString, ",");				//프로토 정보 내용을 단어별로 쪼갠 배열.
+	string* arInputString = StringSplit(inputString, "|");				//프로토 정보 내용을 단어별로 쪼갠 배열.
 	for(int i =0;i<sizeof(arRaceFlag)/sizeof(arRaceFlag[0]);i++) {
 		string tempString = arRaceFlag[i];
 		for (int j=0; j<30 ; j++)		//최대 30개 단어까지. (하드코딩)

@@ -1,0 +1,3 @@
+[submodule "lzo-2.10"]
+	path = lzo-2.10
+	url = https://github.com/synaptseal/lzo-2.10.git

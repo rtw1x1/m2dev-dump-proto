@@ -31,7 +31,7 @@ typedef unsigned long DWORD;
 
 enum EMisc
 {
-	CHARACTER_NAME_MAX_LEN	= 24,
+	CHARACTER_NAME_MAX_LEN = 64,
 	MOB_SKILL_MAX_NUM		= 5,
 };
 
@@ -143,7 +143,7 @@ int m_iMobTableSize = 0;
 
 enum EItemMisc
 {
-	ITEM_NAME_MAX_LEN			= 24,
+	ITEM_NAME_MAX_LEN			= 64,
 	ITEM_VALUES_MAX_NUM			= 6,
 	ITEM_SMALL_DESCR_MAX_LEN	= 256,
 	ITEM_LIMIT_MAX_NUM			= 2,
@@ -586,11 +586,10 @@ static std::vector<SLocaleFile> CollectLocaleFiles(const char* pattern, const ch
 
 static void EnsureLocaleDirectory(const std::string& locale)
 {
-	std::string root = std::string("locale_") + locale;
+	// Create structure: locale/cz instead of locale_cz/locale/cz
+	std::string root = "locale";
 	_mkdir(root.c_str());
-	std::string nested = root + "/locale";
-	_mkdir(nested.c_str());
-	std::string leaf = nested + "/" + locale;
+	std::string leaf = root + "/" + locale;
 	_mkdir(leaf.c_str());
 }
 
@@ -1116,7 +1115,7 @@ static void BuildLocalizedMobProtos()
 	for (const SLocaleFile& locale : locales)
 	{
 		EnsureLocaleDirectory(locale.locale);
-		std::string output = std::string("locale_") + locale.locale + "/locale/" + locale.locale + "/mob_proto";
+		std::string output = std::string("locale/") + locale.locale + "/mob_proto";
 		if (BuildMobTable(locale.filename.c_str()))
 		{
 			SaveMobProto(output.c_str());
@@ -1134,7 +1133,7 @@ static void BuildLocalizedItemProtos()
 	for (const SLocaleFile& locale : locales)
 	{
 		EnsureLocaleDirectory(locale.locale);
-		std::string output = std::string("locale_") + locale.locale + "/locale/" + locale.locale + "/item_proto";
+		std::string output = std::string("locale/") + locale.locale + "/item_proto";
 		if (BuildItemTable(locale.filename.c_str()))
 		{
 			SaveItemProto(output.c_str());
